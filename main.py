@@ -1,4 +1,6 @@
 import os
+import io
+import base64
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,9 +22,9 @@ category_colors = {
 
 plt.rcParams.update(
     {
-        "font.size": 12,
+        "font.size": 14,
         "font.family": "serif",
-        "font.serif": ["Times New Roman", "DejaVu Serif"],
+        "font.serif": ["Times New Roman"],
         "axes.labelsize": 16,
         "xtick.labelsize": 14,
         "ytick.labelsize": 14,
@@ -40,15 +42,7 @@ plt.rcParams.update(
 def name_to_color(name):
     cat = get_category(name)
     base = category_colors.get(cat, category_colors["other"])
-    # Vary the color based on name hash
-    hash_val = int(hashlib.md5(name.encode()).hexdigest()[:2], 16) / 255.0
-    import matplotlib.colors as mcolors
-
-    rgb = mcolors.to_rgb(base)
-    hsv = mcolors.rgb_to_hsv(rgb)
-    hsv[2] = max(0.3, hsv[2] * (0.5 + 0.5 * hash_val))  # vary brightness
-    rgb_var = mcolors.hsv_to_rgb(hsv)
-    return mcolors.to_hex(tuple(rgb_var))
+    return base
 
 
 def name_to_display(name):
@@ -84,7 +78,7 @@ def name_to_dotted_line(name):
 
 def plot_default(name: str, output_name: str = ""):
     csv_path = os.path.join("results", f"{name}.csv")
-    output_path = os.path.join("results", f"{output_name or name}.png")
+    output_path = os.path.join("results", f"{output_name or name}.pdf")
 
     df = pd.read_csv(csv_path)
     df.columns = [c.lower() for c in df.columns]
@@ -161,7 +155,7 @@ def plot_default(name: str, output_name: str = ""):
     ax1.legend()
 
     plt.tight_layout()
-    plt.savefig(output_path)
+    plt.savefig(output_path, format="pdf", bbox_inches="tight", dpi=300)
     plt.close(fig)
 
 
@@ -253,7 +247,7 @@ def create_gui(df):
                     color_key = f"color_{name}"
                     with col2:
                         user_colors[name] = st.color_picker(
-                            "",
+                            f"label_for_color_{name}",
                             value=st.session_state.get(color_key, name_to_color(name)),
                             key=color_key,
                             label_visibility="collapsed",
@@ -314,13 +308,21 @@ def create_gui(df):
                 if regenerating and benchmark_key in st.session_state:
                     plot_placeholder.pyplot(st.session_state[benchmark_key])
 
-                with st.spinner(
-                    "Generating plot..." if not regenerating else "Updating plot..."
-                ):
-                    fig = generate_plot(filtered_df, user_colors)
+                fig = generate_plot(filtered_df, user_colors)
                 plot_placeholder.pyplot(fig)
+                # Generate PDF for download
+                buf = io.BytesIO()
+                fig.savefig(buf, format='pdf', bbox_inches='tight')
+                buf.seek(0)
+                pdf_bytes = buf.getvalue()
+                plt.close(fig)
                 st.session_state[benchmark_key] = fig
                 st.session_state[filter_key] = current_filters
+                
+                # View PDF link
+                pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                link = f'<a href="data:application/pdf;base64,{pdf_base64}" target="_blank">View PDF</a>'
+                st.markdown(link, unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -347,9 +349,9 @@ def generate_plot(filtered_df, user_colors):
 
         cat = get_category(name)
         cat_names_in_plot = [n for n in names if get_category(n) == cat]
-        if len(cat_names_in_plot) == 2:
-            longer = max(cat_names_in_plot, key=len)
-            linestyle = "--" if name == longer else "-"
+        if len(cat_names_in_plot) >= 2:
+            index = cat_names_in_plot.index(name)
+            linestyle = "--" if index % 2 == 0 else "-"
         else:
             linestyle = "-"
 
