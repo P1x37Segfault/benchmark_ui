@@ -8,7 +8,6 @@ import pandas as pd
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import LogLocator
 import streamlit as st
-import hashlib
 
 Z_95 = 1.96  # 95% quantile for standard normal distribution
 
@@ -22,13 +21,13 @@ category_colors = {
 
 plt.rcParams.update(
     {
-        "font.size": 14,
+        "font.size": 16,
         "font.family": "serif",
         "font.serif": ["Times New Roman"],
         "axes.labelsize": 16,
-        "xtick.labelsize": 14,
-        "ytick.labelsize": 14,
-        "legend.fontsize": 14,
+        "xtick.labelsize": 16,
+        "ytick.labelsize": 16,
+        "legend.fontsize": 16,
         "figure.dpi": 300,
         "savefig.dpi": 300,
         "figure.figsize": (13, 7),  # Double column width
@@ -37,7 +36,6 @@ plt.rcParams.update(
         "grid.linewidth": 0.5,
     }
 )
-
 
 def name_to_color(name):
     cat = get_category(name)
@@ -150,9 +148,10 @@ def plot_default(name: str, output_name: str = ""):
     ax1.yaxis.set_major_locator(LogLocator(base=10.0))
     ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
     ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.5)
-    ax1.set_xlabel("Points")
-    ax1.set_ylabel("Seconds")
-    ax1.legend()
+    ax1.set_xlabel("Points", fontsize=16)
+    ax1.set_ylabel("Seconds", fontsize=16)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.legend(fontsize=16)
 
     plt.tight_layout()
     plt.savefig(output_path, format="pdf", bbox_inches="tight", dpi=300)
@@ -402,9 +401,10 @@ def generate_plot(filtered_df, user_colors):
     ax1.yaxis.set_major_locator(LogLocator(base=10.0))
     ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
     ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.5)
-    ax1.set_xlabel("Points")
-    ax1.set_ylabel("Seconds")
-    ax1.legend()
+    ax1.set_xlabel("Points", fontsize=16)
+    ax1.set_ylabel("Seconds", fontsize=16)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.legend(fontsize=16)
 
     plt.tight_layout()
 
