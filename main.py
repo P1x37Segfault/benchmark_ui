@@ -277,6 +277,20 @@ def create_gui(df):
                 link = f'<a href="data:application/pdf;base64,{pdf_base64}" target="_blank">View PDF</a>'
                 st.markdown(link, unsafe_allow_html=True)
 
+                # Additional error plot for monte carlo
+                if benchmark == "monte_carlo":
+                    error_fig = generate_error_plot(filtered_df, user_colors, user_linestyles)
+                    st.pyplot(error_fig)
+                    # Generate PDF for error plot
+                    error_buf = io.BytesIO()
+                    error_fig.savefig(error_buf, format="pdf", bbox_inches="tight")
+                    error_buf.seek(0)
+                    error_pdf_bytes = error_buf.getvalue()
+                    plt.close(error_fig)
+                    error_pdf_base64 = base64.b64encode(error_pdf_bytes).decode("utf-8")
+                    error_link = f'<a href="data:application/pdf;base64,{error_pdf_base64}" target="_blank">View Error PDF</a>'
+                    st.markdown(error_link, unsafe_allow_html=True)
+
 
 @st.cache_data
 def generate_plot(filtered_df, user_colors, user_linestyles):
@@ -342,6 +356,80 @@ def generate_plot(filtered_df, user_colors, user_linestyles):
     ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.5)
     ax1.set_xlabel("Points", fontsize=16)
     ax1.set_ylabel("Seconds", fontsize=16)
+    ax1.tick_params(axis="both", which="major", labelsize=16)
+    ax1.legend(fontsize=16)
+
+    plt.tight_layout()
+
+    return fig
+
+
+@st.cache_data
+def generate_error_plot(filtered_df, user_colors, user_linestyles):
+    col_name = "name"
+    col_points = "points"
+    col_error = "error"
+
+    names = filtered_df[col_name].unique()
+
+    fig = plt.figure()
+    gs = GridSpec(1, 1, figure=fig)
+    ax1 = fig.add_subplot(gs[0, 0])
+
+    for name in names:
+        linestyle = user_linestyles.get(name, "-")
+
+        sub = filtered_df[filtered_df[col_name] == name]
+        points = sorted(sub[col_points])
+        grouped = sub.groupby(col_points)
+
+        # Gather mean, std and sample size for every x-value
+        mean_error = []
+        std_error = []
+        n_obs = []
+        for p in points:
+            g = grouped.get_group(p)
+            mean_error.append(g[col_error].mean())
+            std_error.append(g[col_error].std(ddof=1))
+            n_obs.append(len(g))
+
+        mean_error = np.array(mean_error)
+        std_error = np.array(std_error)
+        n_obs = np.array(n_obs)
+
+        # standard error
+        se = std_error / np.sqrt(n_obs)
+
+        # 95% pointwise CI for the mean
+        lower = mean_error - Z_95 * se
+        upper = mean_error + Z_95 * se
+
+        ax1.plot(
+            points,
+            mean_error,
+            label=name,
+            color=user_colors[name],
+            linestyle=linestyle,
+        )
+        
+    all_points = sorted(df[col_points].unique())
+    ax1.plot(
+        all_points,
+        1 / np.sqrt(np.array(all_points)),
+        linestyle=":",
+        color="black",
+        label=r"$\frac{1}{\sqrt{N}}$",
+    )
+
+    ax1.set_xscale("log")
+    ax1.set_yscale("log")
+    ax1.xaxis.set_major_locator(LogLocator(base=10.0))
+    ax1.xaxis.set_minor_locator(LogLocator(base=10.0))
+    ax1.yaxis.set_major_locator(LogLocator(base=10.0))
+    ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
+    ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.5)
+    ax1.set_xlabel("Points", fontsize=16)
+    ax1.set_ylabel("Error", fontsize=16)
     ax1.tick_params(axis="both", which="major", labelsize=16)
     ax1.legend(fontsize=16)
 
