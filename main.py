@@ -279,7 +279,9 @@ def create_gui(df):
 
                 # Additional error plot for monte carlo
                 if benchmark == "monte_carlo":
-                    error_fig = generate_error_plot(filtered_df, user_colors, user_linestyles)
+                    error_fig = generate_error_plot(
+                        filtered_df, user_colors, user_linestyles
+                    )
                     st.pyplot(error_fig)
                     # Generate PDF for error plot
                     error_buf = io.BytesIO()
@@ -411,7 +413,7 @@ def generate_error_plot(filtered_df, user_colors, user_linestyles):
             color=user_colors[name],
             linestyle=linestyle,
         )
-        
+
     all_points = sorted(df[col_points].unique())
     ax1.plot(
         all_points,
