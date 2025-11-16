@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import LogLocator
+import matplotlib.ticker as ticker
 import streamlit as st
 
 Z_95 = 1.96  # 95% quantile for standard normal distribution
@@ -59,7 +60,7 @@ def format_benchmark_name(name):
         formatted = [part.capitalize() for part in parts]
         return " ".join(formatted)
     else:
-        return name.upper()
+        return name.capitalize()
 
 
 def get_category(name):
@@ -277,7 +278,7 @@ def create_gui(df):
                 link = f'<a href="data:application/pdf;base64,{pdf_base64}" target="_blank">View PDF</a>'
                 st.markdown(link, unsafe_allow_html=True)
 
-                # Additional error plot for monte carlo
+                # error plot for monte carlo
                 if benchmark == "monte_carlo":
                     error_fig = generate_error_plot(
                         filtered_df, user_colors, user_linestyles
@@ -292,6 +293,39 @@ def create_gui(df):
                     error_pdf_base64 = base64.b64encode(error_pdf_bytes).decode("utf-8")
                     error_link = f'<a href="data:application/pdf;base64,{error_pdf_base64}" target="_blank">View Error PDF</a>'
                     st.markdown(error_link, unsafe_allow_html=True)
+
+                # speedup plot
+                unique_points = sorted(filtered_df["points"].unique())
+                if unique_points:
+                    point_options = {f"10^{int(np.log10(p))}": p for p in unique_points}
+                    selected_label = st.selectbox(
+                        "Select num_points for speedup comparison",
+                        list(point_options.keys()),
+                        key=f"points_{benchmark}",
+                    )
+                    selected_points = point_options[selected_label]
+                    use_decimals = st.checkbox("Use decimals in speedup y-axis", value=False, key=f"decimals_{benchmark}")
+                    speedup_fig = generate_speedup_plot(
+                        filtered_df, user_colors, user_linestyles, selected_points, use_decimals
+                    )
+
+                    if speedup_fig is None:
+                        st.write(
+                            f"Error generating speedup plot for {selected_points} points."
+                        )
+                    else:
+                        st.pyplot(speedup_fig)
+                        # Generate PDF for speedup plot
+                        speedup_buf = io.BytesIO()
+                        speedup_fig.savefig(speedup_buf, format="pdf", bbox_inches="tight")
+                        speedup_buf.seek(0)
+                        speedup_pdf_bytes = speedup_buf.getvalue()
+                        plt.close(speedup_fig)
+                        speedup_pdf_base64 = base64.b64encode(speedup_pdf_bytes).decode(
+                            "utf-8"
+                        )
+                        speedup_link = f'<a href="data:application/pdf;base64,{speedup_pdf_base64}" target="_blank">View Speedup PDF</a>'
+                        st.markdown(speedup_link, unsafe_allow_html=True)
 
 
 @st.cache_data
@@ -355,7 +389,7 @@ def generate_plot(filtered_df, user_colors, user_linestyles):
     ax1.xaxis.set_minor_locator(LogLocator(base=10.0))
     ax1.yaxis.set_major_locator(LogLocator(base=10.0))
     ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
-    ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.5)
+    ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.7, linewidth=1.0)
     ax1.set_xlabel("Points", fontsize=16)
     ax1.set_ylabel("Seconds", fontsize=16)
     ax1.tick_params(axis="both", which="major", labelsize=16)
@@ -402,9 +436,10 @@ def generate_error_plot(filtered_df, user_colors, user_linestyles):
         # standard error
         se = std_error / np.sqrt(n_obs)
 
+        # no confidence bands here - too messy
         # 95% pointwise CI for the mean
-        lower = mean_error - Z_95 * se
-        upper = mean_error + Z_95 * se
+        # lower = mean_error - Z_95 * se
+        # upper = mean_error + Z_95 * se
 
         ax1.plot(
             points,
@@ -429,7 +464,7 @@ def generate_error_plot(filtered_df, user_colors, user_linestyles):
     ax1.xaxis.set_minor_locator(LogLocator(base=10.0))
     ax1.yaxis.set_major_locator(LogLocator(base=10.0))
     ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
-    ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.5)
+    ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.7, linewidth=1.0)
     ax1.set_xlabel("Points", fontsize=16)
     ax1.set_ylabel("Error", fontsize=16)
     ax1.tick_params(axis="both", which="major", labelsize=16)
@@ -437,6 +472,111 @@ def generate_error_plot(filtered_df, user_colors, user_linestyles):
 
     plt.tight_layout()
 
+    return fig
+
+
+def generate_speedup_plot(filtered_df, user_colors, user_linestyles, selected_points, use_decimals):
+    # Find reference data for selected points
+    ref_df = filtered_df[
+        (filtered_df["name"].str.lower().str.contains("reference"))
+        & (filtered_df["points"] == selected_points)
+    ]
+    if ref_df.empty:
+        fig, ax = plt.subplots()
+        ax.text(
+            0.5,
+            0.5,
+            f"No reference data found for {selected_points} points",
+            transform=ax.transAxes,
+            ha="center",
+        )
+        return fig
+
+    ref_mean = ref_df["time"].mean()
+
+    if ref_mean == 0:
+        # error
+        return
+
+    # Get all implementation names except reference
+    all_names = filtered_df["name"].unique()
+    impl_names = sorted([name for name in all_names if "reference" not in name.lower()])
+
+    speedups = []
+    labels = []
+    colors = []
+    hatches = []
+    for name in impl_names:
+        impl_df = filtered_df[
+            (filtered_df["name"] == name) & (filtered_df["points"] == selected_points)
+        ]
+        if not impl_df.empty:
+            impl_mean = impl_df["time"].mean()
+
+            if impl_mean == 0:
+                # unexpected, skip
+                continue
+            elif impl_mean == ref_mean:
+                speedup = 1.0
+            else:
+                speedup = ref_mean / impl_mean
+            speedups.append(speedup)
+            labels.append(name)
+            colors.append(user_colors.get(name, "#000000"))
+            linestyle = user_linestyles.get(name, "-")
+            hatch_map = {"-": "", "--": "/", ":": "\\"}
+            hatches.append(hatch_map.get(linestyle, ""))
+
+    if not labels:
+        fig, ax = plt.subplots()
+        ax.text(
+            0.5,
+            0.5,
+            f"No implementation data found for {selected_points} points",
+            transform=ax.transAxes,
+            ha="center",
+        )
+        return fig
+
+    # Sort by speedup ascending
+    sorted_indices = sorted(range(len(speedups)), key=lambda i: speedups[i])
+    speedups = [speedups[i] for i in sorted_indices]
+    labels = [labels[i] for i in sorted_indices]
+    colors = [colors[i] for i in sorted_indices]
+    hatches = [hatches[i] for i in sorted_indices]
+
+    fmt_str = ".1f" if use_decimals else ".0f"
+
+    # Adjust figure width based on number of bars
+    bar_width = 0.6
+    fig_width = max(6, len(labels) * 0.8)  # Minimum 6 inches, expand for more bars
+    fig_height = 6
+    fig = plt.figure(figsize=(fig_width, fig_height))
+    ax = fig.add_subplot(111)
+    bars = ax.bar(labels, speedups, color=colors, hatch=hatches, width=bar_width)
+
+    # Apply hatches
+    for bar, hatch in zip(bars, hatches):
+        bar.set_hatch(hatch)
+
+    # Add speedup labels on top of bars
+    for bar, speedup in zip(bars, speedups):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + max(speedups) * 0.02,
+            f"{speedup:.2f}x",
+            ha="center",
+            va="bottom",
+            fontsize=12,
+        )
+
+    ax.set_ylim(0, max(speedups) * 1.1)
+    ax.set_ylabel("Speedup", fontsize=16)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f"{x:{fmt_str}}x"))
+    # ax.set_title(f"Speedup for 10^{int(np.log10(selected_points))} points", fontsize=16)
+    ax.grid(True, which="major", axis="y", linestyle="--", alpha=0.7, linewidth=1.0)
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
     return fig
 
 
