@@ -573,7 +573,7 @@ def generate_speedup_plot(filtered_df, user_colors, user_linestyles, selected_po
     ax.set_ylim(0, max(speedups) * 1.1)
     ax.set_ylabel("Speedup", fontsize=16)
     ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f"{x:{fmt_str}}x"))
-    # ax.set_title(f"Speedup for 10^{int(np.log10(selected_points))} points", fontsize=16)
+    ax.set_title(f"10^{int(np.log10(selected_points))} points", fontsize=16)
     ax.grid(True, which="major", axis="y", linestyle="--", alpha=0.7, linewidth=1.0)
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
