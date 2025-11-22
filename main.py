@@ -23,13 +23,13 @@ category_colors = {
 
 plt.rcParams.update(
     {
-        "font.size": 16,
+        "font.size": 17,
         "font.family": "serif",
         "font.serif": ["Times New Roman"],
-        "axes.labelsize": 16,
-        "xtick.labelsize": 16,
-        "ytick.labelsize": 16,
-        "legend.fontsize": 16,
+        "axes.labelsize": 17,
+        "xtick.labelsize": 17,
+        "ytick.labelsize": 17,
+        "legend.fontsize": 17,
         "figure.dpi": 300,
         "savefig.dpi": 300,
         "figure.figsize": (13, 7),  # Double column width
@@ -390,10 +390,10 @@ def generate_plot(filtered_df, user_colors, user_linestyles):
     ax1.yaxis.set_major_locator(LogLocator(base=10.0))
     ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
     ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.7, linewidth=1.0)
-    ax1.set_xlabel("Points", fontsize=16)
-    ax1.set_ylabel("Seconds", fontsize=16)
-    ax1.tick_params(axis="both", which="major", labelsize=16)
-    ax1.legend(fontsize=16)
+    ax1.set_xlabel("number of points", fontsize=17)
+    ax1.set_ylabel("mean runtime [s]", fontsize=17)
+    ax1.tick_params(axis="both", which="major", labelsize=17)
+    ax1.legend(fontsize=17)
 
     plt.tight_layout()
 
@@ -465,10 +465,10 @@ def generate_error_plot(filtered_df, user_colors, user_linestyles):
     ax1.yaxis.set_major_locator(LogLocator(base=10.0))
     ax1.yaxis.set_minor_locator(LogLocator(base=10.0))
     ax1.grid(True, which="major", axis="both", linestyle="--", alpha=0.7, linewidth=1.0)
-    ax1.set_xlabel("Points", fontsize=16)
-    ax1.set_ylabel("Error", fontsize=16)
-    ax1.tick_params(axis="both", which="major", labelsize=16)
-    ax1.legend(fontsize=16)
+    ax1.set_xlabel("number of points", fontsize=17)
+    ax1.set_ylabel("mean error", fontsize=17)
+    ax1.tick_params(axis="both", which="major", labelsize=17)
+    ax1.legend(fontsize=17)
 
     plt.tight_layout()
 
@@ -571,9 +571,9 @@ def generate_speedup_plot(filtered_df, user_colors, user_linestyles, selected_po
         )
 
     ax.set_ylim(0, max(speedups) * 1.1)
-    ax.set_ylabel("Speedup", fontsize=16)
+    ax.set_ylabel("mean speedup", fontsize=17)
     ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f"{x:{fmt_str}}x"))
-    ax.set_title(f"10^{int(np.log10(selected_points))} points", fontsize=16)
+    ax.set_title(rf"$10^{int(np.log10(selected_points))}$ points", fontsize=17)
     ax.grid(True, which="major", axis="y", linestyle="--", alpha=0.7, linewidth=1.0)
     plt.xticks(rotation=45, ha="right")
     plt.tight_layout()
